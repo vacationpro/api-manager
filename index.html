@@ -1,0 +1,3005 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>API Key 管理器</title>
+    
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#F2F2F7">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="API管理">
+    <link rel="apple-touch-icon" href="./icon.png">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        ::-webkit-scrollbar { display: none; }
+        
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #F2F2F7;
+            --bg-tertiary: #F2F2F7;
+            --text-primary: #1a1a1a;
+            --text-secondary: #666666;
+            --text-tertiary: #999999;
+            --border: #e0e0e0;
+            --accent: #007AFF;
+            --warning: #FF3B30;
+            --success: #34C759;
+            --card-radius: 12px;
+            --btn-radius: 8px;
+            --input-radius: 8px;
+            --modal-radius: 16px;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+        
+        #app { min-height: 100vh; }
+        
+        .svg-icon {
+            width: 24px;
+            height: 24px;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        
+        .svg-icon svg {
+            width: 100%;
+            height: 100%;
+            fill: currentColor;
+        }
+        
+        .svg-icon.small {
+            width: 16px;
+            height: 16px;
+        }
+        
+        .svg-icon.large {
+            width: 32px;
+            height: 32px;
+        }
+        
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-primary);
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-around;
+            padding: 8px 0;
+            z-index: 100;
+        }
+        
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 16px;
+            cursor: pointer;
+            color: var(--text-tertiary);
+        }
+        
+        .nav-item.active { color: var(--accent); }
+        .nav-icon { font-size: 20px; }
+        .nav-label { font-size: 11px; }
+        
+        .page {
+            padding: 16px;
+            padding-bottom: 80px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-top: 8px;
+        }
+        
+        .page-title { font-size: 20px; font-weight: 600; }
+        
+        .header-btn {
+            width: 36px;
+            height: 36px;
+            border: 1px solid var(--border);
+            background: var(--bg-primary);
+            border-radius: var(--btn-radius);
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .header-btn.active {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .header-actions .header-btn {
+            width: auto;
+            padding: 0 12px;
+            font-size: 14px;
+        }
+        
+        .stats-panel {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: var(--card-radius);
+            margin-bottom: 20px;
+        }
+        
+        .stats-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .stats-title { font-size: 15px; font-weight: 500; }
+        .stats-period { font-size: 12px; color: var(--text-secondary); }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            padding: 16px;
+            gap: 12px;
+        }
+        
+        .stat-item { text-align: center; }
+        
+        .stat-value {
+            font-size: 22px;
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 4px;
+        }
+        
+        .stat-value.warning { color: var(--warning); }
+        .stat-label { font-size: 11px; color: var(--text-secondary); }
+        
+        .stats-list {
+            padding: 0 16px 16px;
+        }
+        
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .stats-row:last-child { border-bottom: none; }
+        
+        .stats-row-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .stats-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent);
+        }
+        
+        .stats-dot.warning { background: var(--warning); }
+        .stats-name { font-size: 14px; }
+        .stats-amount { font-size: 14px; font-weight: 500; }
+        
+        .home-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        .home-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: var(--card-radius);
+            padding: 24px 16px;
+            text-align: center;
+            cursor: pointer;
+        }
+        
+        .home-card-icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+            color: var(--accent);
+        }
+        
+        .home-card-title { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+        .home-card-desc { font-size: 12px; color: var(--text-tertiary); }
+        
+        .platform-section { margin-bottom: 16px; }
+        
+        .platform-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: var(--bg-secondary);
+            border-radius: var(--card-radius);
+            margin-bottom: 8px;
+        }
+        
+        .platform-name { font-size: 14px; font-weight: 500; }
+        .platform-count { font-size: 12px; color: var(--text-secondary); }
+        
+        .key-list { display: flex; flex-direction: column; gap: 8px; }
+        
+        .key-item {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: var(--card-radius);
+            padding: 12px;
+        }
+        
+        .key-item.warning { border-left: 3px solid var(--warning); }
+        
+        .key-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .key-title { font-size: 14px; font-weight: 500; }
+        
+        .key-menu {
+            font-size: 18px;
+            color: var(--text-tertiary);
+            cursor: pointer;
+            padding: 0 4px;
+        }
+        
+        .key-info { display: flex; flex-direction: column; gap: 6px; }
+        
+        .key-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .key-masked {
+            font-family: monospace;
+            background: var(--bg-secondary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+        
+        .balance-bar {
+            width: 50px;
+            height: 3px;
+            background: var(--border);
+            border-radius: 2px;
+        }
+        
+        .balance-fill {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 2px;
+        }
+        
+        .balance-fill.warning { background: var(--warning); }
+        
+        .key-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        
+        .tag {
+            font-size: 10px;
+            padding: 1px 6px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+        }
+        
+        .key-actions {
+            display: flex;
+            gap: 4px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border);
+        }
+        
+        .key-note-area {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border);
+        }
+        
+        .note-display {
+            font-size: 12px;
+            color: var(--text-secondary);
+            min-height: 20px;
+            cursor: pointer;
+            padding: 4px;
+            line-height: 1.5;
+        }
+        
+        .note-display:hover { background: var(--bg-secondary); }
+        
+        .note-input {
+            width: 100%;
+            border: 1px solid var(--accent);
+            border-radius: var(--input-radius);
+            padding: 6px;
+            font-size: 12px;
+            resize: none;
+            font-family: inherit;
+            min-height: 60px;
+        }
+        
+        .note-input:focus { outline: none; }
+        
+        .key-btn {
+            flex: 1;
+            padding: 6px;
+            border: 1px solid var(--border);
+            background: var(--bg-primary);
+            border-radius: var(--btn-radius);
+            font-size: 11px;
+            cursor: pointer;
+        }
+        
+        .key-btn.primary {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+        
+        .filter-bar {
+            display: flex;
+            gap: 8px;
+            margin: 0 -4px 16px;
+            padding: 4px 4px 8px;
+            overflow-x: auto;
+            background: var(--bg-secondary);
+            border-radius: var(--card-radius);
+        }
+        
+        .filter-btn {
+            padding: 8px 16px;
+            border: 1px solid var(--border);
+            background: var(--bg-primary);
+            border-radius: var(--btn-radius);
+            font-size: 13px;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+        
+        .filter-btn.active {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+        
+        .chart-container {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: var(--card-radius);
+            padding: 16px;
+            height: 280px;
+            margin-bottom: 16px;
+        }
+        
+        .chart-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .chart-tab {
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            background: var(--bg-primary);
+            border-radius: var(--btn-radius);
+            font-size: 12px;
+            cursor: pointer;
+        }
+        
+        .chart-tab.active {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .form-group { margin-bottom: 16px; }
+        
+        .form-label {
+            display: block;
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+        
+        .form-input,
+        .form-select,
+        .form-textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--input-radius);
+            font-size: 14px;
+            font-family: inherit;
+            background: var(--bg-primary);
+        }
+        
+        .form-input:focus,
+        .form-select:focus,
+        .form-textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        
+        .form-textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        .tag-input {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: var(--input-radius);
+            background: var(--bg-primary);
+            min-height: 46px;
+            align-items: center;
+        }
+        
+        .tag-input input {
+            border: none;
+            flex: 1;
+            min-width: 80px;
+            font-size: 14px;
+        }
+        
+        .tag-input input:focus { outline: none; }
+        
+        .tag-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        .tag-remove {
+            cursor: pointer;
+            color: var(--text-tertiary);
+        }
+        
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        .collapse-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--card-radius);
+            cursor: pointer;
+            margin-bottom: 16px;
+        }
+        
+        .collapse-title {
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .collapse-arrow {
+            font-size: 16px;
+            color: var(--text-tertiary);
+            transition: transform 0.2s;
+        }
+        
+        .collapse-arrow.expanded {
+            transform: rotate(90deg);
+        }
+        
+        .advanced-options {
+            margin-bottom: 16px;
+            padding: 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--card-radius);
+        }
+        
+        .limit-reminder-row {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .form-hint {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            margin-top: 4px;
+        }
+        
+        .form-footer {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+        
+        .form-footer .btn {
+            flex: 1;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: 1px solid var(--accent);
+            background: var(--bg-primary);
+            border-radius: var(--btn-radius);
+            font-size: 14px;
+            cursor: pointer;
+            width: 100%;
+        }
+        
+        .btn.primary {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-tertiary);
+        }
+        
+        .empty-icon { font-size: 48px; margin-bottom: 16px; }
+        
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 200;
+            display: flex;
+            align-items: flex-end;
+        }
+        
+        .modal {
+            background: var(--bg-primary);
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: slideUp 0.3s ease;
+            border-radius: var(--modal-radius) var(--modal-radius) 0 0;
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+        
+        .modal-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            background: var(--bg-primary);
+            z-index: 10;
+        }
+        
+        .modal-title { font-size: 17px; font-weight: 600; }
+        
+        .modal-close {
+            font-size: 24px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            background: none;
+            border: none;
+            width: 32px;
+            height: 32px;
+        }
+        
+        .modal-body { padding: 16px; }
+        
+        .modal-footer {
+            padding: 16px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 12px;
+        }
+        
+        .modal-footer .btn { flex: 1; }
+        
+        .detail-item { margin-bottom: 16px; }
+        .detail-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+        .detail-value { font-size: 14px; word-break: break-all; }
+        .detail-value.code {
+            font-family: monospace;
+            background: var(--bg-secondary);
+            padding: 12px;
+            border-radius: var(--input-radius);
+            font-size: 13px;
+        }
+        
+        .history-list { max-height: 200px; overflow-y: auto; }
+        
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+        }
+        
+        .settings-section { margin-bottom: 24px; }
+        
+        .settings-title {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+        
+        .settings-item {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: var(--card-radius);
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            margin-bottom: 8px;
+        }
+        
+        .toast {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 12px 24px;
+            border-radius: var(--btn-radius);
+            font-size: 14px;
+            z-index: 300;
+        }
+        
+        .overview-card {
+            background: var(--bg-primary);
+            border-radius: var(--card-radius);
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .overview-title {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        
+        .overview-value {
+            font-size: 28px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        .overview-value.accent { color: var(--accent); }
+        
+        .overview-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .overview-item {
+            background: var(--bg-primary);
+            border-radius: var(--card-radius);
+            padding: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .overview-item-title {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-bottom: 4px;
+        }
+        
+        .overview-item-value {
+            font-size: 20px;
+            font-weight: 600;
+        }
+        
+        .section-card {
+            background: var(--bg-primary);
+            border-radius: var(--card-radius);
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .section-card-title {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .platform-card {
+            background: var(--bg-primary);
+            border-radius: var(--card-radius);
+            padding: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .platform-icon { width: 40px; height: 40px; border-radius: 10px; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center; }
+        .platform-icon svg { width: 24px; height: 24px; }
+        
+        .platform-info {
+            flex: 1;
+        }
+        
+        .platform-info-name {
+            font-size: 15px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        
+        .platform-info-balance {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        
+        .platform-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        
+        .status-indicator.healthy { background: var(--success); }
+        .status-indicator.warning { background: var(--warning); }
+        .status-indicator.unknown { background: var(--text-tertiary); }
+        
+        .usage-percent-bar {
+            width: 60px;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        
+        .usage-percent-fill {
+            height: 100%;
+            border-radius: 2px;
+        }
+        
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            padding-top: 8px;
+        }
+        
+        .timelimit-card {
+            background: var(--bg-primary);
+            border-radius: var(--card-radius);
+            padding: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 3px solid var(--accent);
+        }
+        
+        .timelimit-card.expiring-soon {
+            border-left-color: var(--warning);
+            background: rgba(255, 59, 48, 0.05);
+        }
+        
+        .timelimit-card.expired {
+            border-left-color: var(--text-tertiary);
+            opacity: 0.6;
+        }
+        
+        .timelimit-info {
+            flex: 1;
+        }
+        
+        .timelimit-name {
+            font-size: 15px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        
+        .timelimit-platform {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .timelimit-amount {
+            text-align: right;
+        }
+        
+        .timelimit-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--accent);
+        }
+        
+        .timelimit-expire {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+        
+        .timelimit-expire.warning {
+            color: var(--warning);
+        }
+
+        .platform-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: var(--card-radius);
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .platform-header:active {
+            background: var(--bg-secondary);
+            transform: scale(0.98);
+        }
+
+        .platform-info-main {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .platform-icon-large {
+            width: 44px;
+            height: 44px;
+            background: var(--bg-secondary);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent);
+        }
+
+        .platform-details {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .platform-name-large {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .platform-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .platform-arrow {
+            font-size: 20px;
+            color: var(--text-tertiary);
+            transition: transform 0.3s ease;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .platform-arrow.expanded {
+            transform: rotate(90deg);
+        }
+
+        .key-list-wrapper {
+            margin-bottom: 16px;
+            padding: 0 4px;
+        }
+        
+        .key-list-wrapper .key-item {
+            margin-bottom: 8px;
+            border-left: 3px solid transparent;
+        }
+        
+        .key-list-wrapper .key-item:hover {
+            border-color: var(--accent);
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div v-if="currentPage === 'home'" class="page">
+            <h1 class="page-title">API Key 管理器</h1>
+            
+            <div class="overview-card">
+                <div class="overview-title">总资产</div>
+                <div class="overview-value accent">{{ totalAssetsDisplay }}</div>
+            </div>
+            
+            <div class="overview-grid">
+                <div class="overview-item">
+                    <div class="overview-item-title">本月消费</div>
+                    <div class="overview-item-value">{{ formatCurrency(monthlySpending, 'CNY') }}</div>
+                </div>
+                <div class="overview-item">
+                    <div class="overview-item-title">Key 总数</div>
+                    <div class="overview-item-value">{{ apiKeys.length }}</div>
+                </div>
+                <div class="overview-item">
+                    <div class="overview-item-title">平台数量</div>
+                    <div class="overview-item-value">{{ activePlatformCount }}</div>
+                </div>
+                <div class="overview-item">
+                    <div class="overview-item-title">即将到期</div>
+                    <div class="overview-item-value" :style="{ color: expiringCount > 0 ? 'var(--warning)' : 'inherit' }">{{ expiringCount }}</div>
+                </div>
+            </div>
+            
+            <div class="section-card">
+                <div class="section-card-title">
+                    <span class="svg-icon small" v-html="icons.list"></span>
+                    平台资产明细
+                </div>
+                <div v-if="platformStats.length === 0" class="empty-state" style="padding: 20px;">
+                    <div style="color: var(--text-tertiary);">暂无数据，请先添加 API Key</div>
+                </div>
+                <div v-for="platform in platformStats" :key="platform.id" class="platform-card" style="box-shadow: none; background: var(--bg-secondary);">
+                    <div class="platform-icon" v-html="platform.icon"></div>
+                    <div class="platform-info">
+                        <div class="platform-info-name">{{ platform.name }}</div>
+                        <div class="platform-info-balance">
+                            余额: {{ formatBalance(platform.totalRemaining, platform.currency, platform.balanceType) }}
+                        </div>
+                    </div>
+                    <div class="platform-status">
+                        <div class="usage-percent-bar">
+                            <div class="usage-percent-fill" 
+                                 :style="{ 
+                                     width: Math.min(100, platform.usagePercent || 0) + '%',
+                                     background: (platform.usagePercent || 0) > 80 ? 'var(--warning)' : 'var(--accent)'
+                                 }"></div>
+                        </div>
+                        <div class="status-indicator" :class="getPlatformStatus(platform)"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div v-if="timeLimitKeys.length > 0" class="section-card">
+                <div class="section-card-title">
+                    <span class="svg-icon small" v-html="icons.refresh"></span>
+                    限时额度提醒
+                </div>
+                <div v-for="key in timeLimitKeys" :key="key.id" class="timelimit-card" :class="{ 'expiring-soon': isExpiringSoon(key), 'expired': isExpired(key) }" style="box-shadow: none; background: var(--bg-secondary);">
+                    <div class="timelimit-info">
+                        <div class="timelimit-name">{{ key.name || '未命名' }}</div>
+                    <div class="timelimit-platform">{{ getPlatformName(key.platform) }}</div>
+                </div>
+                <div class="timelimit-amount">
+                    <div class="timelimit-value">{{ formatCurrency(key.timeLimit.amount, getPlatformCurrency(key)) }}</div>
+                    <div class="timelimit-expire" :class="{ warning: isExpiringSoon(key) }">
+                        {{ isExpired(key) ? '已过期' : formatTimeLeft(key.timeLimit.expireAt) }}
+                    </div>
+                </div>
+            </div>
+            </div>
+            
+            <div class="home-grid" style="margin-top: 20px;">
+                <div class="home-card" @click="currentPage = 'add'">
+                    <div class="home-card-icon">
+                        <span class="svg-icon large" v-html="icons.add"></span>
+                    </div>
+                    <div class="home-card-title">添加 API Key</div>
+                    <div class="home-card-desc">录入新的密钥</div>
+                </div>
+                <div class="home-card" @click="currentPage = 'manage'">
+                    <div class="home-card-icon">
+                        <span class="svg-icon large" v-html="icons.list"></span>
+                    </div>
+                    <div class="home-card-title">管理 API Key</div>
+                    <div class="home-card-desc">查看和编辑密钥</div>
+                </div>
+                <div class="home-card" @click="currentPage = 'stats'">
+                    <div class="home-card-icon">
+                        <span class="svg-icon large" v-html="icons.chart"></span>
+                    </div>
+                    <div class="home-card-title">查看用量</div>
+                    <div class="home-card-desc">统计图表分析</div>
+                </div>
+                <div class="home-card" @click="refreshAllBalances">
+                    <div class="home-card-icon">
+                        <span class="svg-icon large" v-html="icons.refresh"></span>
+                    </div>
+                    <div class="home-card-title">刷新余额</div>
+                    <div class="home-card-desc">更新所有平台余额</div>
+                </div>
+            </div>
+        </div>
+        
+        <div v-if="currentPage === 'add'" class="page">
+            <div class="page-header">
+                <h1 class="page-title">{{ form.editingId ? '编辑 API Key' : '添加 API Key' }}</h1>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">平台</label>
+                <select v-model="form.platform" class="form-select" @change="onPlatformChange">
+                    <option value="">选择平台</option>
+                    <optgroup label="预设平台">
+                        <option v-for="p in presetPlatforms" :key="p.id" :value="p.id">{{ p.name }}</option>
+                    </optgroup>
+                    <optgroup v-if="savedCustomPlatforms.length > 0" label="已保存的自定义平台">
+                        <option v-for="p in savedCustomPlatforms" :key="p.id" :value="p.id">{{ p.name }}</option>
+                    </optgroup>
+                    <option value="custom">+ 新建自定义平台</option>
+                </select>
+            </div>
+            
+            <div v-if="form.platform === 'custom'" class="form-group">
+                <label class="form-label">平台名称</label>
+                <input type="text" v-model="form.customPlatformName" class="form-input" placeholder="输入平台名称">
+            </div>
+            
+            <div v-if="form.platform === 'custom'" class="form-group">
+                <label class="form-label">余额查询API（可选）</label>
+                <input type="text" v-model="form.customBalanceApi" class="form-input" placeholder="https://api.example.com/api/user/self">
+                <div class="form-hint">填写余额查询接口地址，如：https://xxx.com/api/user/self</div>
+            </div>
+            
+            <div v-if="form.platform === 'custom'" class="form-group">
+                <label class="form-label">余额字段路径（可选）</label>
+                <input type="text" v-model="form.customBalancePath" class="form-input" placeholder="data.balance">
+                <div class="form-hint">JSON路径如 data.balance，或公式如 value/100</div>
+            </div>
+            
+            <div v-if="form.platform === 'custom'" class="form-group">
+                <label class="form-label">请求方法（可选）</label>
+                <select v-model="form.customBalanceMethod" class="form-select">
+                    <option value="GET">GET</option>
+                    <option value="POST">POST</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">API Key</label>
+                <input type="text" v-model="form.key" class="form-input" placeholder="sk-...">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">名称（可选）</label>
+                <input type="text" v-model="form.name" class="form-input" placeholder="如：主账号">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Base URL（可选）</label>
+                <input type="text" v-model="form.baseUrl" class="form-input" placeholder="https://api.example.com/v1">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">限额提醒</label>
+                <div class="limit-reminder-row">
+                    <input type="number" v-model="form.limitReminder" class="form-input" placeholder="0.00" step="0.01" style="flex:1">
+                    <select v-model="form.limitReminderType" class="form-select" style="width:100px">
+                        <option value="amount">金额</option>
+                        <option value="percent">百分比</option>
+                    </select>
+                </div>
+                <div class="form-hint">当余额低于此值时提醒（金额：具体数值，百分比：如20表示余额低于20%时提醒）</div>
+            </div>
+            
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" v-model="form.autoQuery">
+                    <span>自动查询余额</span>
+                </label>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">标签</label>
+                <div class="tag-input">
+                    <span v-for="(tag, i) in form.tags" :key="i" class="tag-item">
+                        {{ tag }}
+                        <span class="tag-remove" @click="removeTag(i)">×</span>
+                    </span>
+                    <input 
+                        type="text" 
+                        v-model="tagInput" 
+                        @keydown.space.prevent="addTag"
+                        placeholder="输入标签按空格"
+                    >
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">备注</label>
+                <textarea v-model="form.note" class="form-textarea" placeholder="添加备注说明..."></textarea>
+            </div>
+            
+            <div class="collapse-section" @click="showAdvanced = !showAdvanced">
+                <span class="collapse-title">高级选项</span>
+                <span class="collapse-arrow" :class="{ expanded: showAdvanced }">›</span>
+            </div>
+            
+            <div v-if="showAdvanced" class="advanced-options">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">总额度</label>
+                        <input type="number" v-model="form.balanceTotal" class="form-input" placeholder="0.00" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">已用额度</label>
+                        <input type="number" v-model="form.balanceUsed" class="form-input" placeholder="0.00" step="0.01">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">币种</label>
+                        <select v-model="form.currency" class="form-select">
+                            <option value="CNY">CNY (¥)</option>
+                            <option value="USD">USD ($)</option>
+                            <option value="EUR">EUR (€)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">签到链接（可选）</label>
+                        <input type="text" v-model="form.signInUrl" class="form-input" placeholder="https://...">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">限时额度</label>
+                        <input type="number" v-model="form.timeLimitAmount" class="form-input" placeholder="0.00" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">到期时间</label>
+                        <input type="datetime-local" v-model="form.timeLimitExpire" class="form-input">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-footer">
+                <button class="btn" @click="cancelAdd">取消</button>
+                <button class="btn primary" @click="saveKey">保存</button>
+            </div>
+        </div>
+        
+        <div v-if="currentPage === 'manage'" class="page">
+            <div class="page-header">
+                <h1 class="page-title">管理 API Key</h1>
+                <div class="header-actions">
+                    <button class="header-btn" :class="{ active: isEditMode }" @click="isEditMode = !isEditMode">
+                        {{ isEditMode ? '完成' : '编辑' }}
+                    </button>
+                    <button class="header-btn" @click="currentPage = 'add'">
+                        <span class="svg-icon small" v-html="icons.add"></span>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="filter-bar">
+                <button 
+                    class="filter-btn" 
+                    :class="{ active: !filterPlatform }"
+                    @click="filterPlatform = ''"
+                >全部</button>
+                <button 
+                    v-for="p in platformsWithKeys" 
+                    :key="p.id"
+                    class="filter-btn"
+                    :class="{ active: filterPlatform === p.id }"
+                    @click="filterPlatform = p.id"
+                >{{ p.name }}</button>
+            </div>
+            
+            <div v-if="groupedKeys.length === 0" class="empty-state">
+                <div class="empty-icon">
+                    <span class="svg-icon large" v-html="icons.list"></span>
+                </div>
+                <div>暂无 API Key</div>
+            </div>
+            
+            <div v-for="group in groupedKeys" :key="group.platform" class="platform-section">
+                <div class="platform-header" @click.stop="togglePlatform(group.platform)">
+                    <div class="platform-info-main">
+                        <div class="platform-details">
+                            <span class="platform-name-large">{{ group.name }}</span>
+                            <span class="platform-meta">
+                                {{ group.keys.length }} 个 Key · 余额 {{ formatCurrency(getGroupBalance(group.platform), getGroupCurrency(group.platform)) }}
+                                <span v-if="getPlatformInitialBalance(group.platform) > 0">
+                                    · 用量 {{ formatCurrency(getPlatformUsage(group.platform), getGroupCurrency(group.platform)) }}
+                                </span>
+                            </span>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <button class="header-btn" style="width: 28px; height: 28px; font-size: 14px;" @click.stop="openPlatformSettings(group.platform)">
+                            <span class="svg-icon small" v-html="icons.settings"></span>
+                        </button>
+                        <div class="platform-arrow" :class="{ expanded: expandedPlatforms.includes(group.platform) }">›</div>
+                    </div>
+                </div>
+                <div class="key-list-wrapper" v-show="expandedPlatforms.includes(group.platform)">
+                    <div class="key-list">
+                    <div 
+                        v-for="key in group.keys" 
+                        :key="key.id"
+                        class="key-item"
+                        :class="{ warning: isExpiringSoon(key) }"
+                    >
+                        <div class="key-header">
+                            <span class="key-title">{{ key.name || '未命名' }}</span>
+                            <span v-if="isEditMode" class="key-menu" @click="deleteKey(key)">×</span>
+                        </div>
+                        <div class="key-info">
+                            <div class="key-row">
+                                <span class="key-masked">{{ key.showKey ? decryptKey(key.key) : maskKey(decryptKey(key.key)) }}</span>
+                                <span @click="toggleKeyVisibility(key)" style="cursor: pointer;">
+                                    {{ key.showKey ? '隐藏' : '显示' }}
+                                </span>
+                            </div>
+                            <div class="key-row">
+                                <span>平台余额: {{ formatCurrency(getPlatformBalance(key), getPlatformCurrency(key)) }}</span>
+                                <div class="balance-bar">
+                                    <div 
+                                        class="balance-fill" 
+                                        :class="{ warning: getUsagePercent(key) > 80 }"
+                                        :style="{ width: getUsagePercent(key) + '%' }"
+                                    ></div>
+                                </div>
+                                <span>{{ getUsagePercent(key).toFixed(0) }}%</span>
+                            </div>
+                        <div class="key-actions">
+                            <button class="key-btn" @click="copyKey(key)">复制key</button>
+                            <button class="key-btn" @click="copyUrl(key)">复制url</button>
+                            <button v-if="key.signInUrl" class="key-btn" @click="openSignIn(key)">签到</button>
+                            <button class="key-btn primary" @click="openDetailModal(key)">详情</button>
+                        </div>
+                        
+                        <div class="key-note-area">
+                            <div v-if="editingNoteId !== key.id" 
+                                 class="note-display" 
+                                 @click="startEditNote(key)">
+                                {{ key.note || '点击添加备注...' }}
+                            </div>
+                            <textarea v-else
+                                class="note-input"
+                                v-model="editingNoteText"
+                                @blur="saveNote(key)"
+                                @keydown.enter.prevent="saveNote(key)"
+                                placeholder="输入备注..."
+                                autofocus
+                            ></textarea>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+        
+        <div v-if="currentPage === 'stats'" class="page">
+            <h1 class="page-title">用量统计</h1>
+            
+            <div class="chart-tabs">
+                <button 
+                    class="chart-tab" 
+                    :class="{ active: chartPeriod === '7d' }"
+                    @click="chartPeriod = '7d'"
+                >近7天</button>
+                <button 
+                    class="chart-tab" 
+                    :class="{ active: chartPeriod === '30d' }"
+                    @click="chartPeriod = '30d'"
+                >近30天</button>
+                <button 
+                    class="chart-tab" 
+                    :class="{ active: chartPeriod === '90d' }"
+                    @click="chartPeriod = '90d'"
+                >近90天</button>
+            </div>
+            
+            <div class="chart-container" ref="chartContainer"></div>
+            
+            <div class="stats-panel">
+                <div class="stats-header">
+                    <span class="stats-title">平台用量排行</span>
+                </div>
+                <div class="stats-list">
+                    <div v-for="(item, index) in usageRanking" :key="item.platform" class="stats-row">
+                        <div class="stats-row-left">
+                            <span style="width: 20px; font-size: 12px; color: var(--text-tertiary);">{{ index + 1 }}</span>
+                            <span class="svg-icon small" v-html="item.icon" style="margin-right: 8px;"></span>
+                            <span class="stats-name">{{ item.name }}</span>
+                        </div>
+                        <span class="stats-amount">{{ formatCurrency(item.usage, item.currency) }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div v-if="currentPage === 'settings'" class="page">
+            <h1 class="page-title">设置</h1>
+            
+            <div class="settings-section">
+                <div class="settings-title">数据管理</div>
+                <div class="settings-item" @click="exportData">
+                    <span class="settings-item-text">导出数据</span>
+                    <span>›</span>
+                </div>
+                <div class="settings-item" @click="triggerImport">
+                    <span class="settings-item-text">导入数据</span>
+                    <span>›</span>
+                </div>
+                <div class="settings-item" style="color: var(--warning);" @click="clearAllData">
+                    <span class="settings-item-text">清空所有数据</span>
+                    <span>›</span>
+                </div>
+                <input type="file" ref="importFile" style="display: none;" @change="importData" accept=".json">
+            </div>
+            
+            <div class="settings-section">
+                <div class="settings-title">统计信息</div>
+                <div class="settings-item">
+                    <span class="settings-item-text">平台数量</span>
+                    <span>{{ platformStats.length }}</span>
+                </div>
+                <div class="settings-item">
+                    <span class="settings-item-text">API Key 数量</span>
+                    <span>{{ apiKeys.length }}</span>
+                </div>
+            </div>
+            
+            <div class="settings-section">
+                <div class="settings-title">关于</div>
+                <div class="settings-item">
+                    <span class="settings-item-text">版本</span>
+                    <span>v1.1.0</span>
+                </div>
+                <div class="settings-item">
+                    <span class="settings-item-text">数据存储</span>
+                    <span>本地 LocalStorage</span>
+                </div>
+            </div>
+        </div>
+        
+        <div v-if="showDetailModal" class="modal-overlay" @click.self="closeDetailModal">
+            <div class="modal">
+                <div class="modal-header">
+                    <span class="modal-title">密钥详情</span>
+                    <button class="modal-close" @click="closeDetailModal">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="detail-item">
+                        <div class="detail-label">平台</div>
+                        <div class="detail-value">{{ getPlatformName(detailKey.platform) }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">名称</div>
+                        <div class="detail-value">{{ detailKey.name || '-' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">API Key</div>
+                        <div class="detail-value code">{{ decryptKey(detailKey.key) }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Base URL</div>
+                        <div class="detail-value">{{ detailKey.baseUrl || '-' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">平台余额</div>
+                        <div class="detail-value">
+                            {{ formatCurrency(getPlatformBalance(detailKey), getPlatformCurrency(detailKey)) }}
+                        </div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">本Key消费</div>
+                        <div class="detail-value">
+                            {{ formatCurrency(detailKey.totalUsed || 0, getPlatformCurrency(detailKey)) }}
+                            (占平台总额 {{ getUsagePercent(detailKey).toFixed(1) }}%)
+                        </div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">最后查询</div>
+                        <div class="detail-value">{{ detailKey.lastQuery ? formatDate(detailKey.lastQuery) : '从未' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">标签</div>
+                        <div class="detail-value">
+                            <span v-if="detailKey.tags?.length" v-for="tag in detailKey.tags" :key="tag" class="tag">{{ tag }}</span>
+                            <span v-else>-</span>
+                        </div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">备注</div>
+                        <div class="detail-value">{{ detailKey.note || '-' }}</div>
+                    </div>
+                    <div v-if="getPlatformBalanceHistory(detailKey).length" class="detail-item">
+                        <div class="detail-label">平台使用记录</div>
+                        <div class="history-list">
+                            <div v-for="(item, i) in getPlatformBalanceHistory(detailKey).slice(-10).reverse()" :key="i" class="history-item">
+                                <span>{{ formatDateShort(item.date) }}</span>
+                                <span>消费 {{ formatCurrency(item.used, getPlatformCurrency(detailKey)) }}</span>
+                                <span>平台余额 {{ formatCurrency(item.balance, getPlatformCurrency(detailKey)) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn" @click="editKey(detailKey)">编辑</button>
+                    <button class="btn primary" @click="queryBalance(detailKey)">查询余额</button>
+                </div>
+            </div>
+        </div>
+        
+        <div v-if="showPlatformModal" class="modal-overlay" @click.self="closePlatformModal">
+            <div class="modal">
+                <div class="modal-header">
+                    <span class="modal-title">平台详情</span>
+                    <button class="modal-close" @click="closePlatformModal">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">平台名称</label>
+                        <input type="text" v-model="currentPlatform.name" class="form-input" placeholder="输入平台名称">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">初始金额</label>
+                        <input type="number" v-model="currentPlatform.initialBalance" class="form-input" placeholder="0.00" step="0.01">
+                        <div class="form-hint">设置此项后，将自动计算：用量 = 初始金额 - 当前余额</div>
+                    </div>
+                    <div class="detail-item" v-if="currentPlatform.balance">
+                        <div class="detail-label">当前余额</div>
+                        <div class="detail-value">{{ formatCurrency(currentPlatform.balance.remaining, currentPlatform.balance.currency || 'CNY') }}</div>
+                    </div>
+                    <div class="detail-item" v-if="currentPlatform.initialBalance > 0 && currentPlatform.balance">
+                        <div class="detail-label">计算用量</div>
+                        <div class="detail-value accent" style="font-weight: 600;">
+                            {{ formatCurrency(Math.max(0, currentPlatform.initialBalance - currentPlatform.balance.remaining), currentPlatform.balance.currency || 'CNY') }}
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">统计设置</label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" v-model="currentPlatform.unmetered">
+                            不计入统计
+                        </label>
+                        <div class="form-hint">启用后，该平台不会出现在用量图表和排行中</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">备注</label>
+                        <textarea v-model="currentPlatform.note" class="form-textarea" placeholder="平台备注..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn" @click="closePlatformModal">取消</button>
+                    <button v-if="currentPlatform.isCustom" class="btn" style="border-color: var(--warning); color: var(--warning);" @click="deleteCurrentPlatform">删除平台</button>
+                    <button class="btn primary" @click="savePlatformSettings">保存</button>
+                </div>
+            </div>
+        </div>
+        
+        <nav class="bottom-nav">
+            <div class="nav-item" :class="{ active: currentPage === 'home' }" @click="currentPage = 'home'">
+                <div class="nav-icon">
+                    <span class="svg-icon" v-html="icons.home"></span>
+                </div>
+                <span class="nav-label">首页</span>
+            </div>
+            <div class="nav-item" :class="{ active: currentPage === 'manage' }" @click="currentPage = 'manage'">
+                <div class="nav-icon">
+                    <span class="svg-icon" v-html="icons.list"></span>
+                </div>
+                <span class="nav-label">管理</span>
+            </div>
+            <div class="nav-item" :class="{ active: currentPage === 'stats' }" @click="currentPage = 'stats'">
+                <div class="nav-icon">
+                    <span class="svg-icon" v-html="icons.chart"></span>
+                </div>
+                <span class="nav-label">统计</span>
+            </div>
+            <div class="nav-item" :class="{ active: currentPage === 'settings' }" @click="currentPage = 'settings'">
+                <div class="nav-icon">
+                    <span class="svg-icon" v-html="icons.settings"></span>
+                </div>
+                <span class="nav-label">设置</span>
+            </div>
+        </nav>
+        
+        <div v-if="toast.show" class="toast">{{ toast.message }}</div>
+    </div>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker 注册成功！准备就绪。', reg.scope))
+                    .catch(err => console.log('Service Worker 注册失败：', err));
+            });
+        }
+    </script>
+
+    <script>
+        const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
+
+        createApp({
+            setup() {
+                const expandedPlatforms = ref([]);
+                const showPlatformModal = ref(false);
+                const currentPlatform = ref({});
+
+                const togglePlatform = (platformId) => {
+                    const index = expandedPlatforms.value.indexOf(platformId);
+                    if (index === -1) {
+                        expandedPlatforms.value.push(platformId);
+                    } else {
+                        expandedPlatforms.value.splice(index, 1);
+                    }
+                };
+
+                const icons = {
+                    home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
+                    list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>',
+                    chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+                    settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+                    add: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+                    refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',
+                    openai: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.747-7.073zM13.26 22.43a4.476 4.476 0 0 1-2.876-1.04l.141-.081 4.779-2.758a.795.795 0 0 0 .392-.681v-6.737l2.02 1.168a.071.071 0 0 1 .038.052v5.583a4.504 4.504 0 0 1-4.494 4.494zM3.6 18.304a4.47 4.47 0 0 1-.535-3.014l.142.085 4.783 2.759a.771.771 0 0 0 .78 0l5.843-3.369v2.332a.08.08 0 0 1-.033.062L9.74 19.95a4.5 4.5 0 0 1-6.14-1.646zM2.34 7.896a4.485 4.485 0 0 1 2.366-1.973V11.6a.766.766 0 0 0 .388.676l5.815 3.355-2.02 1.168a.076.076 0 0 1-.071 0l-4.83-2.786A4.504 4.504 0 0 1 2.34 7.872zm16.597 3.855l-5.833-3.387L15.119 7.2a.076.076 0 0 1 .071 0l4.83 2.791a4.494 4.494 0 0 1-.676 8.105v-5.678a.79.79 0 0 0-.407-.667zm2.01-3.023l-.141-.085-4.774-2.782a.776.776 0 0 0-.785 0L9.409 9.23V6.897a.066.066 0 0 1 .028-.061l4.83-2.787a4.5 4.5 0 0 1 6.68 4.66zm-12.64 4.135l-2.02-1.164a.08.08 0 0 1-.038-.057V6.075a4.5 4.5 0 0 1 7.375-3.453l-.142.08-4.778 2.758a.795.795 0 0 0-.393.681zm1.097-2.365l2.602-1.5 2.607 1.5v2.999l-2.597 1.5-2.607-1.5z"/></svg>',
+                    deepseek: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>',
+                    zhipu: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>',
+                    moonshot: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>',
+                    siliconflow: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>',
+                    aliyun: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>',
+                    anthropic: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.703 3.938h4.813l5.875 12.562h-4.813L4.703 3.938zm9.594 0h4.813l-5.875 12.562H8.422l5.875-12.562z"/></svg>',
+                    gemini: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.18l6.9 3.45L12 11.09 5.1 7.63 12 4.18zM4 8.82l7 3.5v7.36l-7-3.5V8.82zm9 10.86v-7.36l7-3.5v7.36l-7 3.5z"/></svg>',
+                    azure: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M5.48 19.403l6.23-16.403h.59l6.23 16.403h-.59l-6.23-16.403h-.59l-6.23 16.403h.59zm1.18 0l5.05-13.293 5.05 13.293h-10.1z"/></svg>',
+                    custom: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
+                };
+
+                const defaultPlatforms = [
+                    { 
+                        id: 'openai', 
+                        name: 'OpenAI', 
+                        baseUrl: 'https://api.openai.com/v1', 
+                        signInUrl: 'https://platform.openai.com/settings/usage',
+                        balanceApi: 'https://api.openai.com/v1/dashboard/billing/credit_grants',
+                        balancePath: 'total_available',
+                        balanceMethod: 'GET',
+                        currency: 'USD',
+                        balanceType: 'currency',
+                        icon: icons.openai,
+                        note: ''
+                    },
+                    { 
+                        id: 'azure', 
+                        name: 'Azure OpenAI', 
+                        signInUrl: 'https://portal.azure.com/',
+                        currency: 'USD',
+                        balanceType: 'currency',
+                        icon: icons.azure,
+                        note: ''
+                    },
+                    { 
+                        id: 'anthropic', 
+                        name: 'Anthropic', 
+                        baseUrl: 'https://api.anthropic.com', 
+                        signInUrl: 'https://console.anthropic.com/',
+                        currency: 'USD',
+                        balanceType: 'currency',
+                        icon: icons.anthropic,
+                        note: ''
+                    },
+                    { 
+                        id: 'gemini', 
+                        name: 'Google Gemini', 
+                        baseUrl: 'https://generativelanguage.googleapis.com', 
+                        signInUrl: 'https://ai.google.dev/',
+                        currency: 'USD',
+                        balanceType: 'currency',
+                        icon: icons.gemini,
+                        note: ''
+                    },
+                    { 
+                        id: 'siliconflow', 
+                        name: '硅基流动', 
+                        baseUrl: 'https://api.siliconflow.cn/v1', 
+                        signInUrl: 'https://cloud.siliconflow.cn/',
+                        balanceApi: 'https://api.siliconflow.cn/v1/user/info',
+                        balancePath: '',
+                        balanceMethod: 'GET',
+                        currency: 'CNY',
+                        balanceType: 'currency',
+                        icon: icons.siliconflow,
+                        note: ''
+                    },
+                    { 
+                        id: 'aliyun-bailian', 
+                        name: '阿里云百炼', 
+                        baseUrl: 'https://dashscope.aliyuncs.com/api/v1', 
+                        signInUrl: 'https://bailian.aliyun.com/',
+                        currency: 'CNY',
+                        balanceType: 'currency',
+                        icon: icons.aliyun,
+                        note: ''
+                    },
+                    { 
+                        id: 'zhipuai', 
+                        name: '智谱AI', 
+                        baseUrl: 'https://open.bigmodel.cn/api/paas/v4', 
+                        signInUrl: 'https://open.bigmodel.cn/',
+                        balanceApi: 'https://open.bigmodel.cn/api/paas/v4/billing/credit_grants',
+                        balancePath: 'total_balance',
+                        balanceMethod: 'GET',
+                        currency: 'CNY',
+                        balanceType: 'currency',
+                        icon: icons.zhipu,
+                        note: ''
+                    },
+                    { 
+                        id: 'moonshot', 
+                        name: 'Moonshot', 
+                        baseUrl: 'https://api.moonshot.cn/v1', 
+                        signInUrl: 'https://platform.moonshot.cn/',
+                        balanceApi: 'https://api.moonshot.cn/v1/users/me/balance',
+                        balancePath: '',
+                        balanceMethod: 'GET',
+                        currency: 'CNY',
+                        balanceType: 'currency',
+                        icon: icons.moonshot,
+                        note: ''
+                    },
+                    { 
+                        id: 'deepseek', 
+                        name: 'DeepSeek', 
+                        baseUrl: 'https://api.deepseek.com', 
+                        signInUrl: 'https://platform.deepseek.com/',
+                        balanceApi: 'https://api.deepseek.com/user/balance',
+                        balancePath: 'balance',
+                        balanceMethod: 'GET',
+                        currency: 'CNY',
+                        balanceType: 'currency',
+                        icon: icons.deepseek,
+                        note: ''
+                    },
+                ];
+
+                const currentPage = ref('home');
+                const apiKeys = ref([]);
+                const platforms = ref([...defaultPlatforms]);
+                const filterPlatform = ref('');
+                const isEditMode = ref(false);
+                const chartPeriod = ref('30d');
+                const chartContainer = ref(null);
+                let chart = null;
+                
+                const showDetailModal = ref(false);
+                const detailKey = ref(null);
+                const importFile = ref(null);
+                const showAdvanced = ref(false);
+                
+                const editingNoteId = ref(null);
+                const editingNoteText = ref('');
+                
+                const toast = ref({ show: false, message: '' });
+                
+                const tagInput = ref('');
+                const form = ref({
+                    platform: '',
+                    customPlatformName: '',
+                    customBalanceApi: '',
+                    customBalancePath: '',
+                    customBalanceMethod: 'GET',
+                    name: '',
+                    key: '',
+                    baseUrl: '',
+                    tags: [],
+                    note: '',
+                    balanceTotal: '',
+                    balanceUsed: '',
+                    currency: 'CNY',
+                    signInUrl: '',
+                    timeLimitAmount: '',
+                    timeLimitExpire: '',
+                    autoQuery: true,
+                    limitReminder: '',
+                    limitReminderType: 'amount',
+                    editingId: null
+                });
+
+                const groupedKeys = computed(() => {
+                    const groups = {};
+                    const keys = filterPlatform.value 
+                        ? apiKeys.value.filter(k => k.platform === filterPlatform.value)
+                        : apiKeys.value;
+                    
+                    keys.forEach(key => {
+                        const platformId = key.platform;
+                        if (!groups[platformId]) {
+                            const platform = platforms.value.find(p => p.id === platformId);
+                            groups[platformId] = {
+                                platform: platformId,
+                                name: platform?.name || platformId,
+                                icon: platform?.icon || icons.custom,
+                                keys: []
+                            };
+                        }
+                        groups[platformId].keys.push(key);
+                    });
+                    
+                    return Object.values(groups).sort((a, b) => a.name.localeCompare(b.name, 'zh'));
+                });
+
+                const platformsWithKeys = computed(() => {
+                    const usedPlatformIds = new Set(apiKeys.value.map(k => k.platform));
+                    return platforms.value.filter(p => usedPlatformIds.has(p.id));
+                });
+
+                const presetPlatforms = computed(() => {
+                    return platforms.value.filter(p => !p.isCustom);
+                });
+
+                const savedCustomPlatforms = computed(() => {
+                    return platforms.value.filter(p => p.isCustom);
+                });
+
+                const expiringCount = computed(() => {
+                    return apiKeys.value.filter(key => isExpiringSoon(key)).length;
+                });
+
+                const timeLimitKeys = computed(() => {
+                    return apiKeys.value
+                        .filter(key => key.timeLimit && key.timeLimit.amount > 0)
+                        .sort((a, b) => {
+                            if (!a.timeLimit.expireAt) return 1;
+                            if (!b.timeLimit.expireAt) return -1;
+                            return new Date(a.timeLimit.expireAt) - new Date(b.timeLimit.expireAt);
+                        });
+                });
+
+                const activePlatformCount = computed(() => {
+                    const platformSet = new Set(apiKeys.value.map(k => k.platform));
+                    return platformSet.size;
+                });
+
+                const monthlySpending = computed(() => {
+                    const now = new Date();
+                    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+                    let total = 0;
+                    
+                    platforms.value.forEach(platform => {
+                        if (platform.unmetered) return;
+                        if (!platform.balance || !platform.balance.history) return;
+                        platform.balance.history.forEach(record => {
+                            const recordDate = record.date.split('T')[0];
+                            if (recordDate >= firstDayOfMonth) {
+                                total += record.used || 0;
+                            }
+                        });
+                    });
+                    
+                    return total;
+                });
+
+                const totalAssetsDisplay = computed(() => {
+                    const cnyTotal = platformStats.value
+                        .filter(p => p.currency === 'CNY')
+                        .reduce((sum, p) => sum + (p.totalRemaining || 0), 0);
+                    
+                    const usdTotal = platformStats.value
+                        .filter(p => p.currency === 'USD')
+                        .reduce((sum, p) => sum + (p.totalRemaining || 0), 0);
+                    
+                    const parts = [];
+                    if (cnyTotal > 0) parts.push(`¥${cnyTotal.toFixed(2)}`);
+                    if (usdTotal > 0) parts.push(`$${usdTotal.toFixed(2)}`);
+                    
+                    return parts.length > 0 ? parts.join(' / ') : '¥0.00';
+                });
+
+                const platformStats = computed(() => {
+                    const stats = {};
+                    apiKeys.value.forEach(key => {
+                        const platform = platforms.value.find(p => p.id === key.platform);
+                        if (!platform || platform.unmetered) return;
+                        const platformBalance = platform.balance;
+                        
+                        if (!stats[key.platform]) {
+                            stats[key.platform] = {
+                                id: key.platform,
+                                name: platform.name || key.platform,
+                                icon: platform.icon || icons.custom,
+                                totalRemaining: platformBalance?.remaining || 0,
+                                totalUsed: platformBalance?.totalUsed || 0,
+                                expiring: 0,
+                                currency: platform.currency || platformBalance?.currency || 'CNY',
+                                balanceType: platform.balanceType || 'currency',
+                                usagePercent: platformBalance?.total ? 
+                                    ((platformBalance?.totalUsed || 0) / platformBalance.total * 100) : 0
+                            };
+                        }
+                        if (isExpiringSoon(key)) stats[key.platform].expiring++;
+                    });
+                    return Object.values(stats).sort((a, b) => b.totalRemaining - a.totalRemaining);
+                });
+
+                const usageRanking = computed(() => {
+                    const ranking = {};
+                    const days = chartPeriod.value === '7d' ? 7 : chartPeriod.value === '30d' ? 30 : 90;
+                    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                    
+                    platforms.value.forEach(platform => {
+                        if (platform.unmetered) return;
+                        
+                        if (!ranking[platform.id]) {
+                            ranking[platform.id] = {
+                                platform: platform.id,
+                                name: platform.name,
+                                icon: platform.icon || icons.custom,
+                                usage: 0,
+                                currency: platform.currency || platform.balance?.currency || 'CNY'
+                            };
+                        }
+                        
+                        if (platform.balance && platform.balance.history) {
+                            platform.balance.history.forEach(record => {
+                                if (record.date.split('T')[0] >= cutoff) {
+                                    ranking[platform.id].usage += record.used || 0;
+                                }
+                            });
+                        }
+                    });
+                    
+                    return Object.values(ranking)
+                        .filter(item => item.usage > 0)
+                        .sort((a, b) => b.usage - a.usage);
+                });
+
+                function getPlatformStatus(platform) {
+                    if (platform.totalRemaining <= 0) return 'unknown';
+                    if (platform.usagePercent > 80 || platform.expiring > 0) return 'warning';
+                    return 'healthy';
+                }
+
+                function getEncryptionKey() {
+                    return 'api-key-manager-2025';
+                }
+
+                function encryptKey(key) {
+                    if (!key) return '';
+                    return CryptoJS.AES.encrypt(key, getEncryptionKey()).toString();
+                }
+
+                function decryptKey(encryptedKey) {
+                    if (!encryptedKey) return '';
+                    try {
+                        const bytes = CryptoJS.AES.decrypt(encryptedKey, getEncryptionKey());
+                        return bytes.toString(CryptoJS.enc.Utf8) || '';
+                    } catch (e) {
+                        return '';
+                    }
+                }
+
+                function maskKey(key) {
+                    if (!key || key.length < 8) return '***';
+                    return key.substring(0, 4) + '••••••••' + key.substring(key.length - 4);
+                }
+
+                function getPlatformName(platformId) {
+                    const platform = platforms.value.find(p => p.id === platformId);
+                    return platform?.name || platformId;
+                }
+
+                function formatCurrency(value, currency = 'CNY') {
+                    if (value === undefined || value === null || isNaN(value)) return '-';
+                    const symbol = currency === 'CNY' ? '¥' : currency === 'EUR' ? '€' : '$';
+                    return symbol + parseFloat(value).toFixed(2);
+                }
+
+                function formatBalance(value, currency = 'CNY', balanceType = 'currency') {
+                    if (value === undefined || value === null || isNaN(value)) return '-';
+                    if (balanceType === 'points') {
+                        return parseFloat(value).toFixed(0) + ' 积分';
+                    }
+                    return formatCurrency(value, currency);
+                }
+
+                function formatDate(dateStr) {
+                    if (!dateStr) return '-';
+                    const date = new Date(dateStr);
+                    return date.toLocaleString('zh-CN', { 
+                        month: 'short', 
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                }
+
+                function formatDateShort(dateStr) {
+                    if (!dateStr) return '-';
+                    const date = new Date(dateStr);
+                    return (date.getMonth() + 1) + '/' + date.getDate();
+                }
+
+                function formatTimeLeft(expireAt) {
+                    if (!expireAt) return '未知';
+                    const expire = new Date(expireAt);
+                    const now = new Date();
+                    const diff = expire - now;
+                    
+                    if (diff < 0) return '已过期';
+                    
+                    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    
+                    if (days > 0) return days + '天后';
+                    if (hours > 0) return hours + '小时后';
+                    return '即将';
+                }
+
+                function isExpiringSoon(key) {
+                    if (!key.timeLimit || !key.timeLimit.expireAt) return false;
+                    const expire = new Date(key.timeLimit.expireAt);
+                    const now = new Date();
+                    const diff = expire - now;
+                    return diff > 0 && diff < 48 * 60 * 60 * 1000;
+                }
+
+                function isExpired(key) {
+                    if (!key.timeLimit || !key.timeLimit.expireAt) return false;
+                    const expire = new Date(key.timeLimit.expireAt);
+                    const now = new Date();
+                    return expire < now;
+                }
+
+                function getUsagePercent(key) {
+                    const platform = platforms.value.find(p => p.id === key.platform);
+                    const platformTotal = platform?.balance?.total || 0;
+                    const keyTotalUsed = key.totalUsed || 0;
+                    if (platformTotal <= 0) return 0;
+                    return Math.min(100, (keyTotalUsed / platformTotal) * 100);
+                }
+
+                function getPlatformBalance(key) {
+                    const platform = platforms.value.find(p => p.id === key.platform);
+                    return platform?.balance?.remaining || 0;
+                }
+
+                function getPlatformCurrency(key) {
+                    const platform = platforms.value.find(p => p.id === key.platform);
+                    return platform?.currency || platform?.balance?.currency || 'CNY';
+                }
+
+                function getGroupBalance(platformId) {
+                    const platform = platforms.value.find(p => p.id === platformId);
+                    return platform?.balance?.remaining || 0;
+                }
+
+                function getGroupCurrency(platformId) {
+                    const platform = platforms.value.find(p => p.id === platformId);
+                    return platform?.currency || platform?.balance?.currency || 'CNY';
+                }
+
+                function showToast(message) {
+                    toast.value = { show: true, message };
+                    setTimeout(() => toast.value.show = false, 2000);
+                }
+
+                function onPlatformChange() {
+                    const platform = platforms.value.find(p => p.id === form.value.platform);
+                    if (platform) {
+                        form.value.baseUrl = platform.baseUrl || '';
+                        form.value.signInUrl = platform.signInUrl || '';
+                        form.value.currency = platform.currency || 'CNY';
+                    }
+                }
+
+                function addTag() {
+                    const tag = tagInput.value.trim();
+                    if (tag && !form.value.tags.includes(tag)) {
+                        form.value.tags.push(tag);
+                    }
+                    tagInput.value = '';
+                }
+
+                function removeTag(index) {
+                    form.value.tags.splice(index, 1);
+                }
+
+                function cancelAdd() {
+                    form.value = {
+                        platform: '',
+                        customPlatformName: '',
+                        customBalanceApi: '',
+                        customBalancePath: '',
+                        customBalanceMethod: 'GET',
+                        name: '',
+                        key: '',
+                        baseUrl: '',
+                        tags: [],
+                        note: '',
+                        balanceTotal: '',
+                        balanceUsed: '',
+                        currency: 'CNY',
+                        signInUrl: '',
+                        timeLimitAmount: '',
+                        timeLimitExpire: '',
+                        autoQuery: true,
+                        limitReminder: '',
+                        limitReminderType: 'amount',
+                        editingId: null
+                    };
+                    showAdvanced.value = false;
+                    currentPage.value = 'home';
+                }
+
+                function saveKey() {
+                    if (!form.value.platform) {
+                        showToast('请选择平台');
+                        return;
+                    }
+                    if (!form.value.key.trim()) {
+                        showToast('请输入 API Key');
+                        return;
+                    }
+
+                    let platform = platforms.value.find(p => p.id === form.value.platform);
+                    
+                    if (form.value.platform === 'custom' && form.value.customPlatformName) {
+                        const customId = 'custom_' + Date.now();
+                        platform = {
+                            id: customId,
+                            name: form.value.customPlatformName,
+                            baseUrl: form.value.baseUrl || '',
+                            signInUrl: form.value.signInUrl || '',
+                            balanceApi: form.value.customBalanceApi || '',
+                            balancePath: form.value.customBalancePath || '',
+                            balanceMethod: form.value.customBalanceMethod || 'GET',
+                            currency: form.value.currency || 'CNY',
+                            balanceType: form.value.customBalancePath?.includes('/') ? 'points' : 'currency',
+                            icon: icons.custom,
+                            note: '',
+                            isCustom: true
+                        };
+                        platforms.value.push(platform);
+                        form.value.platform = customId;
+                    }
+                    
+                    const balanceTotal = parseFloat(form.value.balanceTotal) || 0;
+                    const balanceUsed = parseFloat(form.value.balanceUsed) || 0;
+                    
+                    if (platform && balanceTotal > 0 && !platform.balance?.total) {
+                        platform.balance = {
+                            total: balanceTotal,
+                            remaining: balanceTotal - balanceUsed,
+                            totalUsed: balanceUsed,
+                            currency: form.value.currency,
+                            lastQuery: null
+                        };
+                    }
+
+                    const keyData = {
+                        id: form.value.editingId || crypto.randomUUID(),
+                        platform: form.value.platform,
+                        customPlatformName: form.value.platform === 'custom' ? form.value.customPlatformName : undefined,
+                        name: form.value.name,
+                        key: encryptKey(form.value.key),
+                        baseUrl: form.value.baseUrl,
+                        tags: form.value.tags,
+                        note: form.value.note,
+                        totalUsed: 0,
+                        timeLimit: form.value.timeLimitAmount ? {
+                            amount: parseFloat(form.value.timeLimitAmount),
+                            expireAt: form.value.timeLimitExpire ? new Date(form.value.timeLimitExpire).toISOString() : null,
+                            notified: false
+                        } : undefined,
+                        signInUrl: form.value.signInUrl,
+                        autoQuery: form.value.autoQuery,
+                        limitReminder: form.value.limitReminder ? {
+                            value: parseFloat(form.value.limitReminder),
+                            type: form.value.limitReminderType
+                        } : undefined,
+                        history: [],
+                        showKey: false,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    };
+
+                    if (form.value.editingId) {
+                        const index = apiKeys.value.findIndex(k => k.id === form.value.editingId);
+                        if (index !== -1) {
+                            const existingKey = apiKeys.value[index];
+                            keyData.id = existingKey.id;
+                            keyData.createdAt = existingKey.createdAt;
+                            keyData.totalUsed = existingKey.totalUsed || 0;
+                            keyData.history = existingKey.history || [];
+                            keyData.lastQuery = existingKey.lastQuery;
+                            keyData.updatedAt = existingKey.updatedAt;
+                            apiKeys.value[index] = keyData;
+                        }
+                    } else {
+                        apiKeys.value.push(keyData);
+                    }
+                    saveToStorage();
+                    
+                    form.value = {
+                        platform: '',
+                        customPlatformName: '',
+                        customBalanceApi: '',
+                        customBalancePath: '',
+                        customBalanceMethod: 'GET',
+                        name: '',
+                        key: '',
+                        baseUrl: '',
+                        tags: [],
+                        note: '',
+                        balanceTotal: '',
+                        balanceUsed: '',
+                        currency: 'CNY',
+                        signInUrl: '',
+                        timeLimitAmount: '',
+                        timeLimitExpire: '',
+                        autoQuery: true,
+                        limitReminder: '',
+                        limitReminderType: 'amount'
+                    };
+                    showAdvanced.value = false;
+                    
+                    showToast('保存成功');
+                    currentPage.value = 'home';
+                    updateChart();
+                }
+
+                function editKey(key) {
+                    closeDetailModal();
+                    
+                    const platform = platforms.value.find(p => p.id === key.platform);
+                    
+                    form.value = {
+                        platform: key.platform,
+                        customPlatformName: '',
+                        customBalanceApi: '',
+                        customBalancePath: '',
+                        customBalanceMethod: 'GET',
+                        name: key.name || '',
+                        key: decryptKey(key.key),
+                        baseUrl: key.baseUrl || platform?.baseUrl || '',
+                        tags: key.tags || [],
+                        note: key.note || '',
+                        balanceTotal: '',
+                        balanceUsed: '',
+                        currency: platform?.currency || 'CNY',
+                        signInUrl: key.signInUrl || platform?.signInUrl || '',
+                        timeLimitAmount: key.timeLimit?.amount || '',
+                        timeLimitExpire: key.timeLimit?.expireAt ? key.timeLimit.expireAt.slice(0, 16) : '',
+                        autoQuery: key.autoQuery !== false,
+                        limitReminder: key.limitReminder?.value || '',
+                        limitReminderType: key.limitReminder?.type || 'amount',
+                        editingId: key.id
+                    };
+                    
+                    currentPage.value = 'add';
+                }
+
+                function deleteKey(key) {
+                    if (!confirm('确定要删除这个 API Key 吗？')) {
+                        return;
+                    }
+                    const index = apiKeys.value.findIndex(k => k.id === key.id);
+                    if (index !== -1) {
+                        apiKeys.value.splice(index, 1);
+                        saveToStorage();
+                        showToast('已删除');
+                        updateChart();
+                    }
+                }
+
+                function toggleKeyVisibility(key) {
+                    key.showKey = !key.showKey;
+                }
+
+                function copyKey(key) {
+                    const decrypted = decryptKey(key.key);
+                    navigator.clipboard.writeText(decrypted).then(() => {
+                        showToast('已复制 Key');
+                    });
+                }
+
+                function copyUrl(key) {
+                    const url = key.baseUrl || platforms.value.find(p => p.id === key.platform)?.baseUrl || '';
+                    if (url) {
+                        navigator.clipboard.writeText(url).then(() => {
+                            showToast('已复制 URL');
+                        });
+                    } else {
+                        showToast('未配置 URL');
+                    }
+                }
+
+                function openSignIn(key) {
+                    const url = key.signInUrl || platforms.value.find(p => p.id === key.platform)?.signInUrl;
+                    if (url) {
+                        window.open(url, '_blank');
+                    } else {
+                        showToast('未配置签到链接');
+                    }
+                }
+
+                function openDetailModal(key) {
+                    detailKey.value = key;
+                    showDetailModal.value = true;
+                }
+
+                function closeDetailModal() {
+                    showDetailModal.value = false;
+                    detailKey.value = null;
+                }
+
+                function startEditNote(key) {
+                    editingNoteId.value = key.id;
+                    editingNoteText.value = key.note || '';
+                }
+
+                function saveNote(key) {
+                    key.note = editingNoteText.value;
+                    key.updatedAt = new Date().toISOString();
+                    editingNoteId.value = null;
+                    editingNoteText.value = '';
+                    saveToStorage();
+                    showToast('备注已保存');
+                }
+
+                function getPlatformBalanceHistory(key) {
+                    const platform = platforms.value.find(p => p.id === key.platform);
+                    return platform?.balance?.history || [];
+                }
+
+                function parseBalanceValue(data, pathStr) {
+                    if (!pathStr) return null;
+                    
+                    pathStr = pathStr.trim();
+                    
+                    if (pathStr.includes('/')) {
+                        const parts = pathStr.split('/');
+                        let current = data;
+                        for (const part of parts.slice(0, -1)) {
+                            if (part && !/^\d+$/.test(part)) {
+                                current = current?.[part];
+                                if (current === undefined) break;
+                            }
+                        }
+                        if (current !== undefined && current !== null) {
+                            const divisor = parseFloat(parts[parts.length - 1]);
+                            if (!isNaN(divisor) && divisor > 0) {
+                                return parseFloat(current) / divisor;
+                            }
+                        }
+                        return null;
+                    }
+                    
+                    const paths = pathStr.split('.');
+                    let current = data;
+                    for (const path of paths) {
+                        current = current?.[path];
+                        if (current === undefined) break;
+                    }
+                    return current;
+                }
+
+                function handlePlatformBalanceChange(platform, newRemaining) {
+                    const oldRemaining = platform.balance?.remaining;
+                    const isFirstQuery = oldRemaining === undefined || oldRemaining === null;
+                    const currency = platform.currency || platform.balance?.currency || 'CNY';
+
+                    if (!platform.balance) {
+                        platform.balance = { 
+                            total: 0, 
+                            remaining: 0, 
+                            totalUsed: 0, 
+                            currency: currency,
+                            lastQuery: null,
+                            history: []
+                        };
+                    }
+
+                    if (!isFirstQuery && oldRemaining > newRemaining) {
+                        const used = oldRemaining - newRemaining;
+                        platform.balance.totalUsed = (platform.balance.totalUsed || 0) + used;
+
+                        if (!platform.balance.history) platform.balance.history = [];
+                        platform.balance.history.push({
+                            date: new Date().toISOString(),
+                            used: used,
+                            balance: newRemaining
+                        });
+                    } else if (!isFirstQuery && newRemaining > oldRemaining) {
+                        const diff = newRemaining - oldRemaining;
+                        if (diff > 0) {
+                            const name = platform.name || platform.id;
+                            const defaultValue = diff.toFixed(2);
+                            const input = prompt(
+                                `检测到平台「${name}」余额增加。\n本次变动：+${formatCurrency(diff, currency)}\n请输入本次实际充值金额（可修改）：`,
+                                defaultValue
+                            );
+                            if (input !== null) {
+                                const extra = parseFloat(input);
+                                if (!isNaN(extra) && extra > 0) {
+                                    platform.balance.total = (platform.balance.total || 0) + extra;
+                                    platform.initialBalance = (platform.initialBalance || 0) + extra;
+                                    showToast(`已记录充值 ${formatCurrency(extra, currency)}`);
+                                }
+                            }
+                        }
+                    }
+
+                    platform.balance.remaining = newRemaining;
+                    platform.balance.lastQuery = new Date().toISOString();
+                    if (!platform.balance.currency) {
+                        platform.balance.currency = currency;
+                    }
+                }
+
+                async function queryBalance(key) {
+                    showToast('查询中...');
+                    
+                    const platform = platforms.value.find(p => p.id === key.platform);
+                    if (!platform || !platform.balanceApi) {
+                        showToast('该平台不支持自动查询');
+                        return;
+                    }
+
+                    try {
+                        const decryptedKey = decryptKey(key.key);
+                        const method = platform.balanceMethod || 'GET';
+                        
+                        const options = {
+                            method: method,
+                            headers: { 
+                                'Authorization': `Bearer ${decryptedKey}`,
+                                'Content-Type': 'application/json'
+                            }
+                        };
+                        
+                        const response = await fetch(platform.balanceApi, options);
+                        
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            throw new Error(`HTTP ${response.status}: ${errorText}`);
+                        }
+                        
+                        const data = await response.json();
+                        console.log('Balance API response:', data);
+                        
+                        let balance = parseBalanceValue(data, platform.balancePath);
+                        
+                        if (balance === null || balance === undefined) {
+                            balance = data?.data?.data?.balance ?? 
+                                      data?.data?.data?.totalBalance ?? 
+                                      data?.data?.balance ?? 
+                                      data?.data?.totalBalance ?? 
+                                      data?.balance ?? 
+                                      data?.totalBalance ??
+                                      data?.data?.available_balance ??
+                                      data?.available_balance;
+                        }
+                        
+                        if (balance !== null && balance !== undefined) {
+                            const newRemaining = parseFloat(balance);
+                            const currency = platform.currency || platform.balance?.currency || 'CNY';
+
+                            handlePlatformBalanceChange(platform, newRemaining);
+
+                            saveToStorage();
+                            showToast('余额已更新: ' + formatCurrency(newRemaining, currency));
+                            updateChart();
+                        } else {
+                            showToast('无法解析余额数据');
+                            console.log('Response structure:', JSON.stringify(data, null, 2));
+                        }
+                    } catch (error) {
+                        showToast('查询失败: ' + error.message);
+                        console.error('Balance query error:', error);
+                    }
+                }
+
+                async function queryAllBalances() {
+                    const platformKeys = new Map();
+                    
+                    for (const key of apiKeys.value) {
+                        if (key.autoQuery === false) continue;
+                        const platform = platforms.value.find(p => p.id === key.platform);
+                        if (!platform || !platform.balanceApi) continue;
+                        
+                        if (!platformKeys.has(key.platform)) {
+                            platformKeys.set(key.platform, key);
+                        }
+                    }
+                    
+                    if (platformKeys.size === 0) return;
+                    
+                    showToast(`正在查询 ${platformKeys.size} 个平台的余额...`);
+                    
+                    let successCount = 0;
+                    let failCount = 0;
+                    
+                    for (const [platformId, key] of platformKeys) {
+                        const platform = platforms.value.find(p => p.id === platformId);
+                        if (!platform || !platform.balanceApi) continue;
+                        
+                        try {
+                            const decryptedKey = decryptKey(key.key);
+                            const method = platform.balanceMethod || 'GET';
+                            
+                            const options = {
+                                method: method,
+                                headers: { 
+                                    'Authorization': `Bearer ${decryptedKey}`,
+                                    'Content-Type': 'application/json'
+                                }
+                            };
+                            
+                            const response = await fetch(platform.balanceApi, options);
+                            
+                            if (!response.ok) {
+                                failCount++;
+                                continue;
+                            }
+                            
+                            const data = await response.json();
+                            let balance = parseBalanceValue(data, platform.balancePath);
+                            
+                            if (balance === null || balance === undefined) {
+                                balance = data?.data?.data?.balance ?? 
+                                          data?.data?.data?.totalBalance ?? 
+                                          data?.data?.balance ?? 
+                                          data?.data?.totalBalance ?? 
+                                          data?.balance ?? 
+                                          data?.totalBalance ??
+                                          data?.data?.available_balance ??
+                                          data?.available_balance;
+                            }
+                            
+                            if (balance !== null && balance !== undefined) {
+                                const newRemaining = parseFloat(balance);
+
+                                handlePlatformBalanceChange(platform, newRemaining);
+                                successCount++;
+                            } else {
+                                failCount++;
+                            }
+                        } catch (error) {
+                            failCount++;
+                            console.error('Balance query error:', error);
+                        }
+                    }
+                    
+                    saveToStorage();
+                    updateChart();
+                    
+                    if (successCount > 0 || failCount > 0) {
+                        showToast(`余额更新完成: ${successCount} 成功, ${failCount} 失败`);
+                    }
+                }
+
+                async function refreshAllBalances() {
+                    const platformKeys = new Map();
+                    
+                    for (const key of apiKeys.value) {
+                        const platform = platforms.value.find(p => p.id === key.platform);
+                        if (!platform || !platform.balanceApi) continue;
+                        
+                        if (!platformKeys.has(key.platform)) {
+                            platformKeys.set(key.platform, key);
+                        }
+                    }
+                    
+                    if (platformKeys.size === 0) {
+                        showToast('没有支持自动查询的平台');
+                        return;
+                    }
+                    
+                    showToast(`正在刷新 ${platformKeys.size} 个平台的余额...`);
+                    
+                    let successCount = 0;
+                    let failCount = 0;
+                    
+                    for (const [platformId, key] of platformKeys) {
+                        const platform = platforms.value.find(p => p.id === platformId);
+                        if (!platform || !platform.balanceApi) continue;
+                        
+                        try {
+                            const decryptedKey = decryptKey(key.key);
+                            const method = platform.balanceMethod || 'GET';
+                            
+                            const options = {
+                                method: method,
+                                headers: { 
+                                    'Authorization': `Bearer ${decryptedKey}`,
+                                    'Content-Type': 'application/json'
+                                }
+                            };
+                            
+                            const response = await fetch(platform.balanceApi, options);
+                            
+                            if (!response.ok) {
+                                failCount++;
+                                continue;
+                            }
+                            
+                            const data = await response.json();
+                            let balance = parseBalanceValue(data, platform.balancePath);
+                            
+                            if (balance === null || balance === undefined) {
+                                balance = data?.data?.data?.balance ?? 
+                                          data?.data?.data?.totalBalance ?? 
+                                          data?.data?.balance ?? 
+                                          data?.data?.totalBalance ?? 
+                                          data?.balance ?? 
+                                          data?.totalBalance ??
+                                          data?.data?.available_balance ??
+                                          data?.available_balance;
+                            }
+                            
+                            if (balance !== null && balance !== undefined) {
+                                const newRemaining = parseFloat(balance);
+
+                                handlePlatformBalanceChange(platform, newRemaining);
+                                successCount++;
+                            } else {
+                                failCount++;
+                            }
+                        } catch (error) {
+                            failCount++;
+                            console.error('Balance query error:', error);
+                        }
+                    }
+                    
+                    saveToStorage();
+                    updateChart();
+                    
+                    showToast(`余额更新完成: ${successCount} 成功, ${failCount} 失败`);
+                }
+
+                function exportData() {
+                    const data = {
+                        apiKeys: apiKeys.value,
+                        platforms: platforms.value,
+                        exportDate: new Date().toISOString()
+                    };
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `api-keys-${new Date().toISOString().split('T')[0]}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    showToast('导出成功');
+                }
+
+                function triggerImport() {
+                    importFile.value.click();
+                }
+
+                function importData(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const data = JSON.parse(e.target.result);
+                            if (data.apiKeys) {
+                                apiKeys.value = data.apiKeys;
+                                if (data.platforms) {
+                                    platforms.value = data.platforms;
+                                }
+                                saveToStorage();
+                                showToast('导入成功');
+                                updateChart();
+                            }
+                        } catch (error) {
+                            showToast('导入失败');
+                        }
+                    };
+                    reader.readAsText(file);
+                    event.target.value = '';
+                }
+
+                function clearAllData() {
+                    if (!confirm('确定要清空所有数据吗？此操作不可恢复！')) return;
+                    if (!confirm('再次确认：这将删除所有 API Key 和平台数据！')) return;
+                    
+                    apiKeys.value = [];
+                    platforms.value.forEach(p => {
+                        if (p.balance) delete p.balance;
+                        p.note = '';
+                    });
+                    localStorage.removeItem('apiKeys');
+                    saveToStorage();
+                    showToast('数据已清空');
+                    updateChart();
+                }
+
+                function getPlatformInitialBalance(platformId) {
+                    const platform = platforms.value.find(p => p.id === platformId);
+                    return platform?.initialBalance || 0;
+                }
+
+                function getPlatformUsage(platformId) {
+                    const platform = platforms.value.find(p => p.id === platformId);
+                    if (!platform || !platform.balance) return 0;
+                    if (platform.initialBalance) {
+                        return Math.max(0, platform.initialBalance - platform.balance.remaining);
+                    }
+                    return 0;
+                }
+
+                function openPlatformSettings(platformId) {
+                    const platform = platforms.value.find(p => p.id === platformId);
+                    if (!platform) return;
+                    // 克隆一份数据用于编辑
+                    currentPlatform.value = JSON.parse(JSON.stringify(platform));
+                    // 确保 initialBalance 为数字
+                    if (!currentPlatform.value.initialBalance) currentPlatform.value.initialBalance = '';
+                    showPlatformModal.value = true;
+                }
+
+                function closePlatformModal() {
+                    showPlatformModal.value = false;
+                    currentPlatform.value = {};
+                }
+
+                function savePlatformSettings() {
+                    const index = platforms.value.findIndex(p => p.id === currentPlatform.value.id);
+                    if (index !== -1) {
+                        const platform = platforms.value[index];
+                        platform.name = currentPlatform.value.name || platform.name;
+                        platform.initialBalance = Number(currentPlatform.value.initialBalance) || 0;
+                        platform.note = currentPlatform.value.note || '';
+                        platform.unmetered = !!currentPlatform.value.unmetered;
+                        saveToStorage();
+                        showToast('平台设置已保存');
+                    }
+                    closePlatformModal();
+                }
+
+                function deleteCurrentPlatform() {
+                    if (!currentPlatform.value || !currentPlatform.value.id) return;
+                    const platformId = currentPlatform.value.id;
+                    const platform = platforms.value.find(p => p.id === platformId);
+                    if (!platform || !platform.isCustom) {
+                        showToast('仅支持删除自定义平台');
+                        return;
+                    }
+                    const relatedKeys = apiKeys.value.filter(k => k.platform === platformId);
+                    const keyCount = relatedKeys.length;
+                    let message = '确定要删除此自定义平台吗？';
+                    if (keyCount > 0) {
+                        message += `\n同时将删除 ${keyCount} 个关联的 API Key。`;
+                    }
+                    if (!confirm(message)) return;
+                    
+                    apiKeys.value = apiKeys.value.filter(k => k.platform !== platformId);
+                    const index = platforms.value.findIndex(p => p.id === platformId);
+                    if (index !== -1) {
+                        platforms.value.splice(index, 1);
+                    }
+                    saveToStorage();
+                    showToast('平台已删除');
+                    currentPlatform.value = {};
+                    showPlatformModal.value = false;
+                    updateChart();
+                }
+
+                function saveToStorage() {
+                    localStorage.setItem('apiKeys', JSON.stringify(apiKeys.value));
+                    localStorage.setItem('platforms', JSON.stringify(platforms.value));
+                }
+
+                function loadFromStorage() {
+                    const keys = localStorage.getItem('apiKeys');
+                    const plats = localStorage.getItem('platforms');
+                    
+                    if (keys) {
+                        try { apiKeys.value = JSON.parse(keys); } catch (e) {}
+                    }
+                    if (plats) {
+                        try { 
+                            const savedPlatforms = JSON.parse(plats);
+                            savedPlatforms.forEach(sp => {
+                                const platform = platforms.value.find(p => p.id === sp.id);
+                                if (platform) {
+                                    platform.unmetered = !!sp.unmetered;
+                                    if (sp.note) platform.note = sp.note;
+                                    if (sp.balance) platform.balance = sp.balance;
+                                    if (sp.icon && sp.isCustom) platform.icon = sp.icon;
+                                    if (sp.initialBalance) platform.initialBalance = sp.initialBalance;
+                                }
+                            });
+                        } catch (e) {}
+                    }
+                }
+
+                function initChart() {
+                    if (!chartContainer.value) {
+                        setTimeout(initChart, 100);
+                        return;
+                    }
+                    if (chart) {
+                        chart.dispose();
+                        chart = null;
+                    }
+                    try {
+                        chart = echarts.init(chartContainer.value);
+                        updateChart();
+                        window.addEventListener('resize', () => {
+                            if (chart) chart.resize();
+                        });
+                    } catch (e) {
+                        console.error('Chart init error:', e);
+                    }
+                }
+
+                function updateChart() {
+                    if (!chart) return;
+                    
+                    const days = chartPeriod.value === '7d' ? 7 : chartPeriod.value === '30d' ? 30 : 90;
+                    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                    
+                    const platformUsage = [];
+                    
+                    platforms.value.forEach(platform => {
+                        if (platform.unmetered) return;
+                        if (!platform.balance || !platform.balance.history) return;
+                        
+                        let usage = 0;
+                        platform.balance.history.forEach(record => {
+                            const recordDate = record.date.split('T')[0];
+                            if (recordDate >= cutoff) {
+                                usage += record.used || 0;
+                            }
+                        });
+                        
+                        if (usage > 0) {
+                            platformUsage.push({
+                                name: platform.name,
+                                value: usage,
+                                icon: platform.icon || icons.custom
+                            });
+                        }
+                    });
+                    
+                    const pieData = platformUsage.sort((a, b) => b.value - a.value);
+                    
+                    const colors = ['#007AFF', '#34C759', '#FF9500', '#FF3B30', '#5856D6', '#FF2D55', '#AF52DE', '#00C7BE'];
+                    
+                    if (pieData.length === 0) {
+                        chart.setOption({
+                            backgroundColor: 'transparent',
+                            title: {
+                                text: '暂无用量数据',
+                                left: 'center',
+                                top: 'center',
+                                textStyle: { color: '#999', fontSize: 14 }
+                            }
+                        });
+                        return;
+                    }
+                    
+                    chart.setOption({
+                        backgroundColor: 'transparent',
+                        tooltip: {
+                            trigger: 'item',
+                            backgroundColor: '#fff',
+                            borderColor: '#e0e0e0',
+                            textStyle: { color: '#1a1a1a', fontSize: 12 },
+                            formatter: (params) => {
+                                return `${params.name}<br/>${formatCurrency(params.value, 'CNY')} (${params.percent}%)`;
+                            }
+                        },
+                        legend: {
+                            orient: 'vertical',
+                            right: 10,
+                            top: 'center',
+                            textStyle: { color: '#666', fontSize: 12 }
+                        },
+                        series: [{
+                            type: 'pie',
+                            radius: ['40%', '70%'],
+                            center: ['35%', '50%'],
+                            avoidLabelOverlap: false,
+                            itemStyle: {
+                                borderRadius: 8,
+                                borderColor: '#fff',
+                                borderWidth: 2
+                            },
+                            label: {
+                                show: false
+                            },
+                            emphasis: {
+                                label: {
+                                    show: true,
+                                    fontSize: 14,
+                                    fontWeight: 'bold'
+                                }
+                            },
+                            labelLine: {
+                                show: false
+                            },
+                            data: pieData.map((item, index) => ({
+                                name: item.name,
+                                value: item.value,
+                                itemStyle: { color: colors[index % colors.length] }
+                            }))
+                        }]
+                    });
+                }
+
+                watch(chartPeriod, updateChart);
+                watch(currentPage, (newPage) => {
+                    if (newPage === 'stats') {
+                        nextTick(() => {
+                            initChart();
+                        });
+                    }
+                });
+
+                onMounted(() => {
+                    loadFromStorage();
+                    setTimeout(() => {
+                        queryAllBalances();
+                    }, 500);
+                });
+
+                return {
+                    icons,
+                    currentPage,
+                    apiKeys,
+                    platforms,
+                    presetPlatforms,
+                    savedCustomPlatforms,
+                    filterPlatform,
+                    isEditMode,
+                    chartPeriod,
+                    chartContainer,
+                    showDetailModal,
+                    detailKey,
+                    importFile,
+                    showAdvanced,
+                    editingNoteId,
+                    editingNoteText,
+                    toast,
+                    tagInput,
+                    form,
+                    groupedKeys,
+                    expiringCount,
+                    timeLimitKeys,
+                    activePlatformCount,
+                    monthlySpending,
+                    totalAssetsDisplay,
+                    platformStats,
+                    usageRanking,
+                    getPlatformStatus,
+                    decryptKey,
+                    maskKey,
+                    getPlatformName,
+                    formatCurrency,
+                    formatBalance,
+                    isExpired,
+                    formatDate,
+                    formatDateShort,
+                    formatTimeLeft,
+                    isExpiringSoon,
+                    getUsagePercent,
+                    getPlatformBalance,
+                    getPlatformCurrency,
+                    getGroupBalance,
+                    getGroupCurrency,
+                    getPlatformBalanceHistory,
+                    onPlatformChange,
+                    addTag,
+                    removeTag,
+                    cancelAdd,
+                    saveKey,
+                    editKey,
+                    deleteKey,
+                    toggleKeyVisibility,
+                    copyKey,
+                    copyUrl,
+                    openSignIn,
+                    openDetailModal,
+                    closeDetailModal,
+                    startEditNote,
+                    saveNote,
+                    queryBalance,
+                    queryAllBalances,
+                    refreshAllBalances,
+                    exportData,
+                    triggerImport,
+                    importData,
+                    clearAllData,
+                    expandedPlatforms,
+                    togglePlatform,
+                    showPlatformModal,
+                    currentPlatform,
+                    getPlatformInitialBalance,
+                    getPlatformUsage,
+                    openPlatformSettings,
+                    closePlatformModal,
+                    savePlatformSettings,
+                    deleteCurrentPlatform
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
