@@ -2765,7 +2765,7 @@
                     localStorage.setItem('platforms', JSON.stringify(platforms.value));
                 }
 
-                function loadFromStorage() {
+                                function loadFromStorage() {
                     const keys = localStorage.getItem('apiKeys');
                     const plats = localStorage.getItem('platforms');
                     
@@ -2783,6 +2783,8 @@
                                     if (sp.balance) platform.balance = sp.balance;
                                     if (sp.icon && sp.isCustom) platform.icon = sp.icon;
                                     if (sp.initialBalance) platform.initialBalance = sp.initialBalance;
+                                } else if (sp.isCustom) {
+                                    platforms.value.push(sp);
                                 }
                             });
                         } catch (e) {}
