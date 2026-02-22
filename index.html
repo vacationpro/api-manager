@@ -2457,6 +2457,8 @@
                             const currency = platform.currency || platform.balance?.currency || 'CNY';
 
                             handlePlatformBalanceChange(platform, newRemaining);
+                            key.lastQuery = new Date().toISOString(); // 👈 就是加上这一行！
+
 
                             saveToStorage();
                             showToast('余额已更新: ' + formatCurrency(newRemaining, currency));
@@ -2532,6 +2534,8 @@
                                 const newRemaining = parseFloat(balance);
 
                                 handlePlatformBalanceChange(platform, newRemaining);
+                                key.lastQuery = new Date().toISOString(); // 👈 就是加上这一行！
+
                                 successCount++;
                             } else {
                                 failCount++;
@@ -2613,6 +2617,8 @@
                                 const newRemaining = parseFloat(balance);
 
                                 handlePlatformBalanceChange(platform, newRemaining);
+                                key.lastQuery = new Date().toISOString(); // 👈 就是加上这一行！
+
                                 successCount++;
                             } else {
                                 failCount++;
